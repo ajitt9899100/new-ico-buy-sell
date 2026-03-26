@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>ICO Token Sale</title>
+  <script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
+  <style>
+    body { font-family: Arial; background:#0f172a; color:white; text-align:center; }
+    .box { margin-top:100px; }
+    button { padding:10px 20px; margin:10px; border:none; border-radius:8px; cursor:pointer; }
+    input { padding:10px; width:200px; border-radius:6px; border:none; }
+    .buy { background:#22c55e; color:white; }
+    .connect { background:#3b82f6; color:white; }
+  </style>
+</head>
+<body>
+
+<div class="box">
+  <h1>🚀 ICO Token Sale</h1>
+  <p>Price: 1 Token = 0.01 USDT</p>
+
+  <button class="connect" id="connectBtn">Connect MetaMask</button>
+  <p id="wallet"></p>
+
+  <input type="number" id="amount" placeholder="Enter USDT Amount" />
+  <br>
+
+  <button onclick="approveUSDT()">Approve USDT</button>
+  <button class="buy" onclick="buyTokens()">Buy Tokens</button>
+
+  <p id="status"></p>
+</div>
+
+<script>
+let provider;
+let signer;
+let userAddress;
+
+const ICO_ADDRESS = "0x48Fe3C7BaF44faDa1E77100D59A280AA6C7ecf2f";
+const USDT_ADDRESS = "0x55d398326f99059fF775485246999027B3197955";
+
+const ICO_ABI = [
+  "function buyTokens(uint256 usdtAmount) public"
+];
+
+const USDT_ABI = [
+  "function approve(address spender, uint256 amount) public returns (bool)"
+];
+
+// CONNECT WALLET (FIXED VERSION)
+document.getElementById("connectBtn").onclick = async () => {
+  if (typeof window.ethereum === "undefined") {
+    alert("MetaMask install karo!");
+    return;
+  }
+
+  try {
+    // Request account access
+    await window.ethereum.request({ method: "eth_requestAccounts" });
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+    signer = provider.getSigner();
+    userAddress = await signer.getAddress();
+
+    // Switch to BSC Network
+    try {
+      await window.ethereum.request({
+        method: "wallet_switchEthereumChain",
+        params: [{ chainId: "0x38" }], // BSC Mainnet
+      });
+    } catch (switchError) {
+      // If BSC not added
+      if (switchError.code === 4902) {
+        await window.ethereum.request({
+          method: "wallet_addEthereumChain",
+          params: [{
+            chainId: "0x38",
+            chainName: "BSC Mainnet",
+            rpcUrls: ["https://bsc-dataseed.binance.org/"],
+            nativeCurrency: {
+              name: "BNB",
+              symbol: "BNB",
+              decimals: 18
+            },
+            blockExplorerUrls: ["https://bscscan.com"]
+          }]
+        });
+      }
+    }
+
+    document.getElementById("wallet").innerText = "Connected: " + userAddress;
+
+  } catch (err) {
+    console.log(err);
+    alert("Connection failed");
+  }
+};
+
+// APPROVE USDT
+async function approveUSDT() {
+  const amount = document.getElementById("amount").value;
+
+  if (!amount || amount <= 0) {
+    alert("Enter valid amount");
+    return;
+  }
+
+  const usdt = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+
+  try {
+    const tx = await usdt.approve(
+      ICO_ADDRESS,
+      ethers.utils.parseUnits(amount, 18)
+    );
+
+    document.getElementById("status").innerText = "Approving...";
+    await tx.wait();
+    document.getElementById("status").innerText = "USDT Approved!";
+
+  } catch (err) {
+    console.log(err);
+    document.getElementById("status").innerText = "Approve Failed";
+  }
+}
+
+// BUY TOKENS
+async function buyTokens() {
+  const amount = document.getElementById("amount").value;
+
+  if (!amount || amount <= 0) {
+    alert("Enter valid amount");
+    return;
+  }
+
+  const ico = new ethers.Contract(ICO_ADDRESS, ICO_ABI, signer);
+
+  try {
+    const tx = await ico.buyTokens(
+      ethers.utils.parseUnits(amount, 18)
+    );
+
+    document.getElementById("status").innerText = "Buying Tokens...";
+    await tx.wait();
+    document.getElementById("status").innerText = "Tokens Purchased Successfully!";
+
+  } catch (err) {
+    console.log(err);
+    document.getElementById("status").innerText = "Purchase Failed";
+  }
+}
+</script>
+
+</body>
+</html>
